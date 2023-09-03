@@ -51,6 +51,7 @@ volatile uint8_t ReadyToCalcDist = 0;
 volatile uint8_t StartMeasureDist = 0;
 
 uint32_t HeartBeatTim;
+float Distance; //cm - centimeter
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -101,17 +102,28 @@ int main(void)
   MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
 
-
   // Turn on TIM 1 in input capture mode Channel 1
   HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
   // Turn on TIM1 in input capture mode Channel 2
   HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_2);
+  // take tick for heartbeat
+  HeartBeatTim = HAL_GetTick();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	if(HAL_GetTick() - HeartBeatTim  >= 200)
+	{
+		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+		HeartBeatTim = HAL_GetTick();
+	}
+	if(ReadyToCalcDist == 1)
+	{
+		ReadyToCalcDist = 0;
+		Distance = (EdgeDownTime - EdgeUpTime)/58.0;
+	}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -203,6 +215,11 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 			ReadyToCalcDist = 1;
 		}
 	}
+
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
 	// Timer 10 for trigger measurement
 	if(htim == &htim10)
 	{
