@@ -99,9 +99,9 @@ void MX_TIM10_Init(void)
 
   /* USER CODE END TIM10_Init 1 */
   htim10.Instance = TIM10;
-  htim10.Init.Prescaler = 9999;
+  htim10.Init.Prescaler = 99;
   htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim10.Init.Period = 65535;
+  htim10.Init.Period = 9;
   htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim10) != HAL_OK)
@@ -132,7 +132,7 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* tim_baseHandle)
     */
     GPIO_InitStruct.Pin = TIM_CH1_Echo_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Pull = GPIO_PULLDOWN;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = GPIO_AF1_TIM1;
     HAL_GPIO_Init(TIM_CH1_Echo_GPIO_Port, &GPIO_InitStruct);
@@ -171,6 +171,14 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* tim_baseHandle)
     HAL_GPIO_DeInit(TIM_CH1_Echo_GPIO_Port, TIM_CH1_Echo_Pin);
 
     /* TIM1 interrupt Deinit */
+  /* USER CODE BEGIN TIM1:TIM1_UP_TIM10_IRQn disable */
+    /**
+    * Uncomment the line below to disable the "TIM1_UP_TIM10_IRQn" interrupt
+    * Be aware, disabling shared interrupt may affect other IPs
+    */
+    /* HAL_NVIC_DisableIRQ(TIM1_UP_TIM10_IRQn); */
+  /* USER CODE END TIM1:TIM1_UP_TIM10_IRQn disable */
+
     HAL_NVIC_DisableIRQ(TIM1_CC_IRQn);
   /* USER CODE BEGIN TIM1_MspDeInit 1 */
 
@@ -183,6 +191,16 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* tim_baseHandle)
   /* USER CODE END TIM10_MspDeInit 0 */
     /* Peripheral clock disable */
     __HAL_RCC_TIM10_CLK_DISABLE();
+
+    /* TIM10 interrupt Deinit */
+  /* USER CODE BEGIN TIM10:TIM1_UP_TIM10_IRQn disable */
+    /**
+    * Uncomment the line below to disable the "TIM1_UP_TIM10_IRQn" interrupt
+    * Be aware, disabling shared interrupt may affect other IPs
+    */
+    /* HAL_NVIC_DisableIRQ(TIM1_UP_TIM10_IRQn); */
+  /* USER CODE END TIM10:TIM1_UP_TIM10_IRQn disable */
+
   /* USER CODE BEGIN TIM10_MspDeInit 1 */
 
   /* USER CODE END TIM10_MspDeInit 1 */

@@ -48,6 +48,9 @@
 volatile uint16_t EdgeUpTime;
 volatile uint16_t EdgeDownTime;
 volatile uint8_t ReadyToCalcDist = 0;
+volatile uint8_t StartMeasureDist = 0;
+
+uint32_t HeartBeatTim;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -171,11 +174,18 @@ static void MX_NVIC_Init(void)
   /* TIM1_CC_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(TIM1_CC_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(TIM1_CC_IRQn);
+  /* EXTI15_10_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+  /* TIM1_UP_TIM10_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(TIM1_UP_TIM10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(TIM1_UP_TIM10_IRQn);
 }
 
 /* USER CODE BEGIN 4 */
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
+	// Timer 1 for measure time
 	if(htim == &htim1)
 	{
 		if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
@@ -192,6 +202,21 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 			HAL_TIM_IC_Start_IT(htim, TIM_CHANNEL_2);
 			ReadyToCalcDist = 1;
 		}
+	}
+	// Timer 10 for trigger measurement
+	if(htim == &htim10)
+	{
+		HAL_GPIO_WritePin(HCSR04_Trig_GPIO_Port, HCSR04_Trig_Pin, GPIO_PIN_RESET);
+		HAL_TIM_Base_Stop_IT(&htim10);
+	}
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	if(GPIO_Pin == B1_Pin)
+	{
+		HAL_TIM_Base_Start_IT(&htim10);
+		HAL_GPIO_WritePin(HCSR04_Trig_GPIO_Port, HCSR04_Trig_Pin, GPIO_PIN_SET);
 	}
 }
 /* USER CODE END 4 */
