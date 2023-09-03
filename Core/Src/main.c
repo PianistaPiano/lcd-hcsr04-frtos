@@ -45,13 +45,14 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-volatile uint16_t EdgeUpTime;
-volatile uint16_t EdgeDownTime;
-volatile uint8_t ReadyToCalcDist = 0;
-volatile uint8_t StartMeasureDist = 0;
-
+//volatile uint16_t EdgeUpTime;
+//volatile uint16_t EdgeDownTime;
+//volatile uint8_t ReadyToCalcDist = 0;
+//volatile uint8_t StartMeasureDist = 0;
+//
+//float Distance; //cm - centimeter
 uint32_t HeartBeatTim;
-float Distance; //cm - centimeter
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -119,11 +120,11 @@ int main(void)
 		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 		HeartBeatTim = HAL_GetTick();
 	}
-	if(ReadyToCalcDist == 1)
-	{
-		ReadyToCalcDist = 0;
-		Distance = (EdgeDownTime - EdgeUpTime)/58.0;
-	}
+//	if(ReadyToCalcDist == 1)
+//	{
+//		ReadyToCalcDist = 0;
+//		Distance = (EdgeDownTime - EdgeUpTime)/58.0;
+//	}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -195,47 +196,47 @@ static void MX_NVIC_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
-{
-	// Timer 1 for measure time
-	if(htim == &htim1)
-	{
-		if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
-		{
-			EdgeUpTime = __HAL_TIM_GET_COMPARE(htim, TIM_CHANNEL_1);
-			// Turn on TIM 1 in input capture mode Channel 1
-			HAL_TIM_IC_Start_IT(htim, TIM_CHANNEL_1);
-
-		}
-		else if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2)
-		{
-			EdgeDownTime = __HAL_TIM_GET_COMPARE(htim, TIM_CHANNEL_2);
-			// Turn on TIM1 in input capture mode Channel 2
-			HAL_TIM_IC_Start_IT(htim, TIM_CHANNEL_2);
-			ReadyToCalcDist = 1;
-		}
-	}
-
-}
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-	// Timer 10 for trigger measurement
-	if(htim == &htim10)
-	{
-		HAL_GPIO_WritePin(HCSR04_Trig_GPIO_Port, HCSR04_Trig_Pin, GPIO_PIN_RESET);
-		HAL_TIM_Base_Stop_IT(&htim10);
-	}
-}
-
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-	if(GPIO_Pin == B1_Pin)
-	{
-		HAL_TIM_Base_Start_IT(&htim10);
-		HAL_GPIO_WritePin(HCSR04_Trig_GPIO_Port, HCSR04_Trig_Pin, GPIO_PIN_SET);
-	}
-}
+//void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+//{
+//	// Timer 1 for measure time
+//	if(htim == &htim1)
+//	{
+//		if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
+//		{
+//			EdgeUpTime = __HAL_TIM_GET_COMPARE(htim, TIM_CHANNEL_1);
+//			// Turn on TIM 1 in input capture mode Channel 1
+//			HAL_TIM_IC_Start_IT(htim, TIM_CHANNEL_1);
+//
+//		}
+//		else if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2)
+//		{
+//			EdgeDownTime = __HAL_TIM_GET_COMPARE(htim, TIM_CHANNEL_2);
+//			// Turn on TIM1 in input capture mode Channel 2
+//			HAL_TIM_IC_Start_IT(htim, TIM_CHANNEL_2);
+//			ReadyToCalcDist = 1;
+//		}
+//	}
+//
+//}
+//
+//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+//{
+//	// Timer 10 for trigger measurement
+//	if(htim == &htim10)
+//	{
+//		HAL_GPIO_WritePin(HCSR04_Trig_GPIO_Port, HCSR04_Trig_Pin, GPIO_PIN_RESET);
+//		HAL_TIM_Base_Stop_IT(&htim10);
+//	}
+//}
+//
+//void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+//{
+//	if(GPIO_Pin == B1_Pin)
+//	{
+//		HAL_TIM_Base_Start_IT(&htim10);
+//		HAL_GPIO_WritePin(HCSR04_Trig_GPIO_Port, HCSR04_Trig_Pin, GPIO_PIN_SET);
+//	}
+//}
 /* USER CODE END 4 */
 
 /**
