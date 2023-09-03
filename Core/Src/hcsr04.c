@@ -8,15 +8,14 @@
 
 #include "hcsr04.h"
 
-#define CONST_TO_CALC_DIST 58.0
+#define CONST_TO_CALC_DIST 58.772
 
-static HCSR04_t hcsr04;
+HCSR04_t hcsr04;
 
-static volatile uint16_t EdgeUpTime;
-static volatile uint16_t EdgeDownTime;
-static volatile uint8_t ReadyToCalcDist = 0;
-static volatile uint8_t StartMeasureDist = 0;
-
+volatile uint16_t EdgeUpTime;
+volatile uint16_t EdgeDownTime;
+volatile uint8_t ReadyToCalcDist = 0;
+volatile uint8_t StartMeasureDist = 0;
 
 void HCSR04_Init(TIM_HandleTypeDef* htim_trig, TIM_HandleTypeDef* htim_echo, uint16_t GPIO_Pin_Button, uint16_t GPIO_Pin_TrigSignal, GPIO_TypeDef* GPIO_Port_TrigSignal)
 {
@@ -32,17 +31,21 @@ void HCSR04_Init(TIM_HandleTypeDef* htim_trig, TIM_HandleTypeDef* htim_echo, uin
 
 uint8_t HCSR04_Measurement(float* distance)
 {
+	float Distance;
 	if(ReadyToCalcDist == 1)
 	{
 		ReadyToCalcDist = 0;
-		*distance = (float)(EdgeDownTime - EdgeUpTime)/CONST_TO_CALC_DIST;
+		Distance = (float)(EdgeDownTime - EdgeUpTime)/CONST_TO_CALC_DIST;
+		if(Distance < 0)
+			return 1;
+		*distance = Distance;
 		return 0;
 	}
 
 	return 1;
 }
 
-
+// === Callbacks from IT === //
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
 	// Timer 1 for measure time

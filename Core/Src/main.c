@@ -18,13 +18,15 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "dma.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "hcsr04.h"
+#include "stdio.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,8 +52,10 @@
 //volatile uint8_t ReadyToCalcDist = 0;
 //volatile uint8_t StartMeasureDist = 0;
 //
-//float Distance; //cm - centimeter
+float Distance; //cm - centimeter
 uint32_t HeartBeatTim;
+char message[64];
+uint8_t sizeofmessage;
 
 /* USER CODE END PV */
 
@@ -59,7 +63,7 @@ uint32_t HeartBeatTim;
 void SystemClock_Config(void);
 static void MX_NVIC_Init(void);
 /* USER CODE BEGIN PFP */
-
+void SendUART(char* message, uint8_t size);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -95,6 +99,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_TIM1_Init();
   MX_TIM10_Init();
@@ -103,10 +108,13 @@ int main(void)
   MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
 
+
   // Turn on TIM 1 in input capture mode Channel 1
   HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
   // Turn on TIM1 in input capture mode Channel 2
   HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_2);
+  // HCSR04 Init
+  HCSR04_Init(&htim10, &htim1, B1_Pin, HCSR04_Trig_Pin, HCSR04_Trig_GPIO_Port);
   // take tick for heartbeat
   HeartBeatTim = HAL_GetTick();
   /* USER CODE END 2 */
@@ -120,11 +128,14 @@ int main(void)
 		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 		HeartBeatTim = HAL_GetTick();
 	}
-//	if(ReadyToCalcDist == 1)
-//	{
-//		ReadyToCalcDist = 0;
-//		Distance = (EdgeDownTime - EdgeUpTime)/58.0;
-//	}
+	if(HCSR04_Measurement(&Distance) == 0)
+	{
+		sizeofmessage = sprintf(message,"Dist: %d mm\n\r", (uint16_t)(Distance*100));
+		SendUART(message, sizeofmessage);
+	}
+
+
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -193,50 +204,16 @@ static void MX_NVIC_Init(void)
   /* TIM1_UP_TIM10_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(TIM1_UP_TIM10_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(TIM1_UP_TIM10_IRQn);
+  /* USART2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(USART2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(USART2_IRQn);
 }
 
 /* USER CODE BEGIN 4 */
-//void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
-//{
-//	// Timer 1 for measure time
-//	if(htim == &htim1)
-//	{
-//		if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
-//		{
-//			EdgeUpTime = __HAL_TIM_GET_COMPARE(htim, TIM_CHANNEL_1);
-//			// Turn on TIM 1 in input capture mode Channel 1
-//			HAL_TIM_IC_Start_IT(htim, TIM_CHANNEL_1);
-//
-//		}
-//		else if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2)
-//		{
-//			EdgeDownTime = __HAL_TIM_GET_COMPARE(htim, TIM_CHANNEL_2);
-//			// Turn on TIM1 in input capture mode Channel 2
-//			HAL_TIM_IC_Start_IT(htim, TIM_CHANNEL_2);
-//			ReadyToCalcDist = 1;
-//		}
-//	}
-//
-//}
-//
-//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-//{
-//	// Timer 10 for trigger measurement
-//	if(htim == &htim10)
-//	{
-//		HAL_GPIO_WritePin(HCSR04_Trig_GPIO_Port, HCSR04_Trig_Pin, GPIO_PIN_RESET);
-//		HAL_TIM_Base_Stop_IT(&htim10);
-//	}
-//}
-//
-//void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-//{
-//	if(GPIO_Pin == B1_Pin)
-//	{
-//		HAL_TIM_Base_Start_IT(&htim10);
-//		HAL_GPIO_WritePin(HCSR04_Trig_GPIO_Port, HCSR04_Trig_Pin, GPIO_PIN_SET);
-//	}
-//}
+void SendUART(char* message, uint8_t size)
+{
+	HAL_UART_Transmit_DMA(&huart2, (uint8_t*)message, size);
+}
 /* USER CODE END 4 */
 
 /**
