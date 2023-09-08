@@ -6,6 +6,7 @@ Debug/
 *.xml
 *.html
 *.chm
+* Debug.launch
 .settings
 test.txt
 
