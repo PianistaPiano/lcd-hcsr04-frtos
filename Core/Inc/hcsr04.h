@@ -19,12 +19,16 @@ typedef struct HCSR04
 	uint16_t GPIO_Pin_TrigSignal; // for trigger signal
 	GPIO_TypeDef* GPIO_Port_TrigSignal; //for trigger signal
 
+	float distance;
+
 } HCSR04_t;
 
 
-void HCSR04_Init(TIM_HandleTypeDef* htim_trig, TIM_HandleTypeDef* htim_echo, uint16_t GPIO_Pin_Button, uint16_t GPIO_Pin_TrigSignal, GPIO_TypeDef* GPIO_Port_TrigSignal);
+void HCSR04_Init(HCSR04_t* hcsr04, TIM_HandleTypeDef* htim_trig,
+				 TIM_HandleTypeDef* htim_echo, uint16_t GPIO_Pin_Button,
+				 uint16_t GPIO_Pin_TrigSignal, GPIO_TypeDef* GPIO_Port_TrigSignal);
 
-uint8_t HCSR04_Measurement(float* distance);
+uint8_t HCSR04_Measurement(HCSR04_t* hcsr04);
 
 
 
