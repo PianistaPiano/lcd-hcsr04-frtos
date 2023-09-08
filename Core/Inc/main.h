@@ -66,9 +66,21 @@ void Error_Handler(void);
 #define USART_RX_GPIO_Port GPIOA
 #define LD2_Pin GPIO_PIN_5
 #define LD2_GPIO_Port GPIOA
+#define LCD_DB6_Pin GPIO_PIN_6
+#define LCD_DB6_GPIO_Port GPIOA
+#define LCD_DB5_Pin GPIO_PIN_7
+#define LCD_DB5_GPIO_Port GPIOA
+#define LCD_DB0_Pin GPIO_PIN_10
+#define LCD_DB0_GPIO_Port GPIOB
+#define LCD_DB3_Pin GPIO_PIN_7
+#define LCD_DB3_GPIO_Port GPIOC
 #define TIM_CH1_Echo_Pin GPIO_PIN_8
 #define TIM_CH1_Echo_GPIO_Port GPIOA
-#define HCSR04_Trig_Pin GPIO_PIN_9
+#define LCD_DB2_Pin GPIO_PIN_9
+#define LCD_DB2_GPIO_Port GPIOA
+#define LCD_RS_Pin GPIO_PIN_10
+#define LCD_RS_GPIO_Port GPIOA
+#define HCSR04_Trig_Pin GPIO_PIN_11
 #define HCSR04_Trig_GPIO_Port GPIOA
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
@@ -76,6 +88,16 @@ void Error_Handler(void);
 #define TCK_GPIO_Port GPIOA
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
+#define LCD_E_Pin GPIO_PIN_4
+#define LCD_E_GPIO_Port GPIOB
+#define LCD_RW_Pin GPIO_PIN_5
+#define LCD_RW_GPIO_Port GPIOB
+#define LCD_DB4_Pin GPIO_PIN_6
+#define LCD_DB4_GPIO_Port GPIOB
+#define LCD_DB1_Pin GPIO_PIN_8
+#define LCD_DB1_GPIO_Port GPIOB
+#define LCD_DB7_Pin GPIO_PIN_9
+#define LCD_DB7_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
