@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 #include "dma.h"
 #include "tim.h"
 #include "usart.h"
@@ -25,9 +26,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "hcsr04.h"
-#include "stdio.h"
-#include "LCD_H44780U.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,33 +47,34 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-LCD_H44780_t lcd;
-HCSR04_t hc;
-#if 1
-GPIO_TypeDef* Data_Ports[8] = {LCD_DB7_GPIO_Port, LCD_DB6_GPIO_Port, LCD_DB5_GPIO_Port,
-								LCD_DB4_GPIO_Port, LCD_DB3_GPIO_Port, LCD_DB2_GPIO_Port,
-								LCD_DB1_GPIO_Port, LCD_DB0_GPIO_Port};
-uint16_t Data_Pins[8] = {LCD_DB7_Pin, LCD_DB6_Pin, LCD_DB5_Pin, LCD_DB4_Pin,
-						LCD_DB3_Pin, LCD_DB2_Pin, LCD_DB1_Pin, LCD_DB0_Pin};
-#endif
-
-
-volatile uint16_t EdgeUpTime;
-volatile uint16_t EdgeDownTime;
-volatile uint8_t ReadyToCalcDist = 0;
-volatile uint8_t StartMeasureDist = 0;
+//LCD_H44780_t lcd;
+//HCSR04_t hc;
+//#if 1
+//GPIO_TypeDef* Data_Ports[8] = {LCD_DB7_GPIO_Port, LCD_DB6_GPIO_Port, LCD_DB5_GPIO_Port,
+//								LCD_DB4_GPIO_Port, LCD_DB3_GPIO_Port, LCD_DB2_GPIO_Port,
+//								LCD_DB1_GPIO_Port, LCD_DB0_GPIO_Port};
+//uint16_t Data_Pins[8] = {LCD_DB7_Pin, LCD_DB6_Pin, LCD_DB5_Pin, LCD_DB4_Pin,
+//						LCD_DB3_Pin, LCD_DB2_Pin, LCD_DB1_Pin, LCD_DB0_Pin};
+//#endif
 //
-uint32_t HeartBeatTim;
-char message[64];
-uint8_t sizeofmessage;
+//
+//volatile uint16_t EdgeUpTime;
+//volatile uint16_t EdgeDownTime;
+//volatile uint8_t ReadyToCalcDist = 0;
+//volatile uint8_t StartMeasureDist = 0;
+////
+//uint32_t HeartBeatTim;
+//char message[64];
+//uint8_t sizeofmessage;
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+void MX_FREERTOS_Init(void);
 static void MX_NVIC_Init(void);
 /* USER CODE BEGIN PFP */
-void SendUART(char* message, uint8_t size);
+//void SendUART(char* message, uint8_t size);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -118,44 +118,21 @@ int main(void)
   /* Initialize interrupts */
   MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
-  LCD_create(&lcd ,Data_Ports, Data_Pins, LCD_RS_GPIO_Port, LCD_RS_Pin,
- 		  	 LCD_RW_GPIO_Port, LCD_RW_Pin, LCD_E_GPIO_Port, LCD_E_Pin);
 
-
-  LCD_Init(&lcd, LCD_8BIT_MODE, LCD_ONE_LINE, LCD_5x8, LCD_CURSOR_ON, LCD_BLINKING_ON);
-
-  // Turn on TIM 1 in input capture mode Channel 1
-  HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
-  // Turn on TIM1 in input capture mode Channel 2
-  HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_2);
-  // HCSR04 Init
-  HCSR04_Init(&hc, &htim10, &htim1, B1_Pin, HCSR04_Trig_Pin, HCSR04_Trig_GPIO_Port);
-  // take tick for heartbeat
-  HeartBeatTim = HAL_GetTick();
-
-  sizeofmessage = sprintf(message,"Dist: ");
-  LCD_Write_Data(&lcd, (uint8_t*)message, sizeofmessage);
   /* USER CODE END 2 */
 
+  /* Init scheduler */
+  osKernelInitialize();  /* Call init function for freertos objects (in freertos.c) */
+  MX_FREERTOS_Init();
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	if(HAL_GetTick() - HeartBeatTim  >= 200)
-	{
-		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-		HeartBeatTim = HAL_GetTick();
-	}
-	if(HCSR04_Measurement(&hc) == 0)
-	{
-		sizeofmessage = sprintf(message,"%d mm", (uint16_t)(hc.distance*10));
-		LCD_Clear_XtoY_In_Line(&lcd, 1, 6, 8);
-		LCD_Write_Data(&lcd, (uint8_t*)message, sizeofmessage);
-//		SendUART(message, sizeofmessage);
-	}
-
-
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -216,68 +193,31 @@ void SystemClock_Config(void)
 static void MX_NVIC_Init(void)
 {
   /* TIM1_CC_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(TIM1_CC_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(TIM1_CC_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(TIM1_CC_IRQn);
   /* EXTI15_10_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
   /* TIM1_UP_TIM10_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(TIM1_UP_TIM10_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(TIM1_UP_TIM10_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(TIM1_UP_TIM10_IRQn);
   /* USART2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(USART2_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(USART2_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(USART2_IRQn);
 }
 
 /* USER CODE BEGIN 4 */
-void SendUART(char* message, uint8_t size)
-{
-	HAL_UART_Transmit_DMA(&huart2, (uint8_t*)message, size);
-}
 
-// === Callbacks from IT === //
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
-{
-	// Timer 1 for measure time
-	if(htim == hc.htim_echo)
-	{
-		if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
-		{
-			EdgeUpTime = __HAL_TIM_GET_COMPARE(htim, TIM_CHANNEL_1);
-			// Turn on TIM 1 in input capture mode Channel 1
-			HAL_TIM_IC_Start_IT(htim, TIM_CHANNEL_1);
-
-		}
-		else if(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_2)
-		{
-			EdgeDownTime = __HAL_TIM_GET_COMPARE(htim, TIM_CHANNEL_2);
-			// Turn on TIM1 in input capture mode Channel 2
-			HAL_TIM_IC_Start_IT(htim, TIM_CHANNEL_2);
-			ReadyToCalcDist = 1;
-		}
-	}
-
-}
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-	// Timer 10 for trigger measurement
-	if(htim == hc.htim_trig)
-	{
-		HAL_GPIO_WritePin(hc.GPIO_Port_TrigSignal, hc.GPIO_Pin_TrigSignal, GPIO_PIN_RESET);
-		HAL_TIM_Base_Stop_IT(hc.htim_trig);
-	}
-}
-
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-	if(GPIO_Pin == hc.GPIO_Pin_Button)
-	{
-		HAL_TIM_Base_Start_IT(hc.htim_trig);
-		HAL_GPIO_WritePin(hc.GPIO_Port_TrigSignal, hc.GPIO_Pin_TrigSignal, GPIO_PIN_SET);
-	}
-}
 /* USER CODE END 4 */
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM11 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
 
 /**
   * @brief  This function is executed in case of error occurrence.
