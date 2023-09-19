@@ -34,6 +34,8 @@
 #include "usart.h"
 #include "gpio.h"
 #include "semphr.h"
+#include "timers.h"
+#include "queue.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -81,15 +83,42 @@ const osThreadAttr_t CalcDistTask_attributes = {
   .stack_size = 256 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for LcdDistTask */
+osThreadId_t LcdDistTaskHandle;
+const osThreadAttr_t LcdDistTask_attributes = {
+  .name = "LcdDistTask",
+  .stack_size = 256 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
+/* Definitions for LcdDistQueue */
+osMessageQueueId_t LcdDistQueueHandle;
+const osMessageQueueAttr_t LcdDistQueue_attributes = {
+  .name = "LcdDistQueue"
+};
+/* Definitions for LcdTransferTimer */
+osTimerId_t LcdTransferTimerHandle;
+const osTimerAttr_t LcdTransferTimer_attributes = {
+  .name = "LcdTransferTimer"
+};
 /* Definitions for PrintfMutex */
 osMutexId_t PrintfMutexHandle;
 const osMutexAttr_t PrintfMutex_attributes = {
   .name = "PrintfMutex"
 };
+/* Definitions for LcdWriteMutex */
+osMutexId_t LcdWriteMutexHandle;
+const osMutexAttr_t LcdWriteMutex_attributes = {
+  .name = "LcdWriteMutex"
+};
 /* Definitions for CalcDistSem */
 osSemaphoreId_t CalcDistSemHandle;
 const osSemaphoreAttr_t CalcDistSem_attributes = {
   .name = "CalcDistSem"
+};
+/* Definitions for LcdTransferSem */
+osSemaphoreId_t LcdTransferSemHandle;
+const osSemaphoreAttr_t LcdTransferSem_attributes = {
+  .name = "LcdTransferSem"
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -99,6 +128,8 @@ const osSemaphoreAttr_t CalcDistSem_attributes = {
 
 void StartHeartBeatTask(void *argument);
 void StartCalcDistTask(void *argument);
+void StartLcdDistTask(void *argument);
+void LcdTransferCallback(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -111,10 +142,6 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 	// HCSR04 Init
 	HCSR04_Init(&hc, &htim10, &htim1, B1_Pin, HCSR04_Trig_Pin, HCSR04_Trig_GPIO_Port);
-    LCD_create(&lcd ,Data_Ports, Data_Pins, LCD_RS_GPIO_Port, LCD_RS_Pin,
-			 LCD_RW_GPIO_Port, LCD_RW_Pin, LCD_E_GPIO_Port, LCD_E_Pin);
-
-    LCD_Init(&lcd, LCD_8BIT_MODE, LCD_ONE_LINE, LCD_5x8, LCD_CURSOR_OFF, LCD_BLINKING_OFF);
     // Turn on TIM 1 in input capture mode Channel 1
     HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
     // Turn on TIM1 in input capture mode Channel 2
@@ -124,6 +151,9 @@ void MX_FREERTOS_Init(void) {
   /* creation of PrintfMutex */
   PrintfMutexHandle = osMutexNew(&PrintfMutex_attributes);
 
+  /* creation of LcdWriteMutex */
+  LcdWriteMutexHandle = osMutexNew(&LcdWriteMutex_attributes);
+
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
@@ -132,13 +162,24 @@ void MX_FREERTOS_Init(void) {
   /* creation of CalcDistSem */
   CalcDistSemHandle = osSemaphoreNew(1, 1, &CalcDistSem_attributes);
 
+  /* creation of LcdTransferSem */
+  LcdTransferSemHandle = osSemaphoreNew(1, 1, &LcdTransferSem_attributes);
+
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
 
+  /* Create the timer(s) */
+  /* creation of LcdTransferTimer */
+  LcdTransferTimerHandle = osTimerNew(LcdTransferCallback, osTimerOnce, NULL, &LcdTransferTimer_attributes);
+
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
+
+  /* Create the queue(s) */
+  /* creation of LcdDistQueue */
+  LcdDistQueueHandle = osMessageQueueNew (16, sizeof(float), &LcdDistQueue_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -150,6 +191,9 @@ void MX_FREERTOS_Init(void) {
 
   /* creation of CalcDistTask */
   CalcDistTaskHandle = osThreadNew(StartCalcDistTask, NULL, &CalcDistTask_attributes);
+
+  /* creation of LcdDistTask */
+  LcdDistTaskHandle = osThreadNew(StartLcdDistTask, NULL, &LcdDistTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -199,10 +243,49 @@ void StartCalcDistTask(void *argument)
 		if(HCSR04_Measurement(&hc) == 0)
 		{
 			printf("Wynik: %.1f\n\r", hc.distance);
+			xQueueSendToBack(LcdDistQueueHandle, &hc.distance, portMAX_DELAY);
 		}
 	}
   }
   /* USER CODE END StartCalcDistTask */
+}
+
+/* USER CODE BEGIN Header_StartLcdDistTask */
+/**
+* @brief Function implementing the LcdDistTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartLcdDistTask */
+void StartLcdDistTask(void *argument)
+{
+  /* USER CODE BEGIN StartLcdDistTask */
+	 LCD_create(&lcd ,Data_Ports, Data_Pins, LCD_RS_GPIO_Port, LCD_RS_Pin,
+			 	 LCD_RW_GPIO_Port, LCD_RW_Pin, LCD_E_GPIO_Port, LCD_E_Pin);
+	 LCD_Init(&lcd, LCD_8BIT_MODE, LCD_ONE_LINE, LCD_5x8, LCD_CURSOR_ON, LCD_BLINKING_ON);
+	 LCD_Write_Data(&lcd, (uint8_t*)"Result: ", 8);
+	 float dist;
+	 char msg[32];
+	 uint8_t length;
+  /* Infinite loop */
+  for(;;)
+  {
+    xQueueReceive(LcdDistQueueHandle, &dist, portMAX_DELAY);
+    LCD_Clear_XtoY_In_Line(&lcd, 1, 9, 7);
+    LCD_GoTo_X(&lcd, 1, 9);
+    length = sprintf(msg, "%.1f cm", dist);
+    LCD_Write_Data(&lcd, (uint8_t*)msg, length);
+    printf_("LCD\n\r");
+  }
+  /* USER CODE END StartLcdDistTask */
+}
+
+/* LcdTransferCallback function */
+void LcdTransferCallback(void *argument)
+{
+  /* USER CODE BEGIN LcdTransferCallback */
+	xSemaphoreGive(LcdTransferSemHandle);
+  /* USER CODE END LcdTransferCallback */
 }
 
 /* Private application code --------------------------------------------------*/

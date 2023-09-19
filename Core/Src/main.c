@@ -47,25 +47,6 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-//LCD_H44780_t lcd;
-//HCSR04_t hc;
-//#if 1
-//GPIO_TypeDef* Data_Ports[8] = {LCD_DB7_GPIO_Port, LCD_DB6_GPIO_Port, LCD_DB5_GPIO_Port,
-//								LCD_DB4_GPIO_Port, LCD_DB3_GPIO_Port, LCD_DB2_GPIO_Port,
-//								LCD_DB1_GPIO_Port, LCD_DB0_GPIO_Port};
-//uint16_t Data_Pins[8] = {LCD_DB7_Pin, LCD_DB6_Pin, LCD_DB5_Pin, LCD_DB4_Pin,
-//						LCD_DB3_Pin, LCD_DB2_Pin, LCD_DB1_Pin, LCD_DB0_Pin};
-//#endif
-//
-//
-//volatile uint16_t EdgeUpTime;
-//volatile uint16_t EdgeDownTime;
-//volatile uint8_t ReadyToCalcDist = 0;
-//volatile uint8_t StartMeasureDist = 0;
-////
-//uint32_t HeartBeatTim;
-//char message[64];
-//uint8_t sizeofmessage;
 
 /* USER CODE END PV */
 
