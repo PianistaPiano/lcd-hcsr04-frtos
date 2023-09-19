@@ -200,6 +200,7 @@ static void MX_NVIC_Init(void)
   * @retval None
   */
 
+
 /**
   * @brief  This function is executed in case of error occurrence.
   * @retval None

@@ -42,7 +42,6 @@ static void LCD_Transfer(LCD_H44780_t* lcd)
   */
 static void LCD_write(LCD_H44780_t* lcd, LCD_REGISTER_t reg, uint8_t data)
 {
-	xSemaphoreTake(LcdWriteMutexHandle, portMAX_DELAY);
 	if(reg == LCD_COMMAND)
 	{
 		HAL_GPIO_WritePin(lcd->RS_Port,lcd->RS_Pin, 0);
@@ -74,9 +73,6 @@ static void LCD_write(LCD_H44780_t* lcd, LCD_REGISTER_t reg, uint8_t data)
 		}
 		LCD_Transfer(lcd);
 	}
-	xSemaphoreGive(LcdWriteMutexHandle);
-	taskYIELD();
-
 }
 
 /**
@@ -428,9 +424,12 @@ void LCD_Init(LCD_H44780_t* lcd, LCD_MODE_t mode, LCD_LINES_t num_of_lines, LCD_
 	lcd->cursor = cursor;
 	lcd->blink = blink;
 
-	// Init
+
 	uint8_t command = 0;
 	// for test // uint8_t data = 0;
+
+	// Init
+
 	if((lcd->mode == LCD_8BIT_MODE) && (lcd->num_of_lines == LCD_ONE_LINE) && (lcd->dots == LCD_5x8))
 	{
 		command = FUNCTION_SET | MODE_8BIT_ONE_LINE | DOTS_5x8;
@@ -466,10 +465,6 @@ void LCD_Init(LCD_H44780_t* lcd, LCD_MODE_t mode, LCD_LINES_t num_of_lines, LCD_
 
 	LCD_write_command(lcd, command);
 
-	// clear display
-	command = CLEAR_DISPLAY;
-	LCD_write_command(lcd, command);
-
 	// On display and cursor and blink
 	if((lcd->cursor == LCD_CURSOR_ON) && (lcd->blink == LCD_BLINKING_ON))
 	{
@@ -492,6 +487,13 @@ void LCD_Init(LCD_H44780_t* lcd, LCD_MODE_t mode, LCD_LINES_t num_of_lines, LCD_
 	// Entry mode set inc not accompanish
 	command = ENTRY_MODE_SET | CURSOR_INC_ON_AND_ACC_DISP_OFF;
 	LCD_write_command(lcd, command);
+
+	// clear display
+	command = CLEAR_DISPLAY;
+	LCD_write_command(lcd, command);
+	HAL_Delay(1);
+
+
 //	// for test
 //	data = (uint8_t)'H';
 //	LCD_write_data(lcd, data);

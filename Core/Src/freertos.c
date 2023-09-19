@@ -88,7 +88,14 @@ osThreadId_t LcdDistTaskHandle;
 const osThreadAttr_t LcdDistTask_attributes = {
   .name = "LcdDistTask",
   .stack_size = 256 * 4,
-  .priority = (osPriority_t) osPriorityLow,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for LcdDataTask */
+osThreadId_t LcdDataTaskHandle;
+const osThreadAttr_t LcdDataTask_attributes = {
+  .name = "LcdDataTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for LcdDistQueue */
 osMessageQueueId_t LcdDistQueueHandle;
@@ -105,10 +112,10 @@ osMutexId_t PrintfMutexHandle;
 const osMutexAttr_t PrintfMutex_attributes = {
   .name = "PrintfMutex"
 };
-/* Definitions for LcdWriteMutex */
-osMutexId_t LcdWriteMutexHandle;
-const osMutexAttr_t LcdWriteMutex_attributes = {
-  .name = "LcdWriteMutex"
+/* Definitions for LcdMutex */
+osMutexId_t LcdMutexHandle;
+const osMutexAttr_t LcdMutex_attributes = {
+  .name = "LcdMutex"
 };
 /* Definitions for CalcDistSem */
 osSemaphoreId_t CalcDistSemHandle;
@@ -129,6 +136,7 @@ const osSemaphoreAttr_t LcdTransferSem_attributes = {
 void StartHeartBeatTask(void *argument);
 void StartCalcDistTask(void *argument);
 void StartLcdDistTask(void *argument);
+void StartLcdDataTask(void *argument);
 void LcdTransferCallback(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
@@ -151,8 +159,8 @@ void MX_FREERTOS_Init(void) {
   /* creation of PrintfMutex */
   PrintfMutexHandle = osMutexNew(&PrintfMutex_attributes);
 
-  /* creation of LcdWriteMutex */
-  LcdWriteMutexHandle = osMutexNew(&LcdWriteMutex_attributes);
+  /* creation of LcdMutex */
+  LcdMutexHandle = osMutexNew(&LcdMutex_attributes);
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
@@ -194,6 +202,9 @@ void MX_FREERTOS_Init(void) {
 
   /* creation of LcdDistTask */
   LcdDistTaskHandle = osThreadNew(StartLcdDistTask, NULL, &LcdDistTask_attributes);
+
+  /* creation of LcdDataTask */
+  LcdDataTaskHandle = osThreadNew(StartLcdDataTask, NULL, &LcdDataTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -262,7 +273,7 @@ void StartLcdDistTask(void *argument)
   /* USER CODE BEGIN StartLcdDistTask */
 	 LCD_create(&lcd ,Data_Ports, Data_Pins, LCD_RS_GPIO_Port, LCD_RS_Pin,
 			 	 LCD_RW_GPIO_Port, LCD_RW_Pin, LCD_E_GPIO_Port, LCD_E_Pin);
-	 LCD_Init(&lcd, LCD_8BIT_MODE, LCD_ONE_LINE, LCD_5x8, LCD_CURSOR_ON, LCD_BLINKING_ON);
+	 LCD_Init(&lcd, LCD_8BIT_MODE, LCD_ONE_LINE, LCD_5x8, LCD_CURSOR_OFF, LCD_BLINKING_OFF);
 	 LCD_Write_Data(&lcd, (uint8_t*)"Result: ", 8);
 	 float dist;
 	 char msg[32];
@@ -271,20 +282,48 @@ void StartLcdDistTask(void *argument)
   for(;;)
   {
     xQueueReceive(LcdDistQueueHandle, &dist, portMAX_DELAY);
-    LCD_Clear_XtoY_In_Line(&lcd, 1, 9, 7);
+    xSemaphoreTake(LcdMutexHandle, portMAX_DELAY);
+    LCD_Clear_XtoY_In_Line(&lcd, 1, 9, 10);
     LCD_GoTo_X(&lcd, 1, 9);
     length = sprintf(msg, "%.1f cm", dist);
     LCD_Write_Data(&lcd, (uint8_t*)msg, length);
+    xSemaphoreGive(LcdMutexHandle);
     printf_("LCD\n\r");
   }
   /* USER CODE END StartLcdDistTask */
+}
+
+/* USER CODE BEGIN Header_StartLcdDataTask */
+/**
+* @brief Function implementing the LcdDataTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartLcdDataTask */
+void StartLcdDataTask(void *argument)
+{
+  /* USER CODE BEGIN StartLcdDataTask */
+	osDelay(300);
+	LCD_New_Line(&lcd, 2);
+	LCD_Write_Data(&lcd, (uint8_t*)"Data: ", 6);
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(200);
+    xSemaphoreTake(LcdMutexHandle, portMAX_DELAY);
+	LCD_Clear_XtoY_In_Line(&lcd, 2, 7, 7);
+	LCD_GoTo_X(&lcd, 2, 7);
+	LCD_Write_Data(&lcd, (uint8_t*)"123 xx", 6);
+	xSemaphoreGive(LcdMutexHandle);
+  }
+  /* USER CODE END StartLcdDataTask */
 }
 
 /* LcdTransferCallback function */
 void LcdTransferCallback(void *argument)
 {
   /* USER CODE BEGIN LcdTransferCallback */
-	xSemaphoreGive(LcdTransferSemHandle);
+	xSemaphoreGiveFromISR(LcdTransferSemHandle, NULL);
   /* USER CODE END LcdTransferCallback */
 }
 
