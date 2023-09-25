@@ -59,15 +59,24 @@ HCSR04_t hc;
 
 // LCD Init
 LCD_H44780_t lcd;
+// 8 bit
 GPIO_TypeDef* Data_Ports[8] = {LCD_DB7_GPIO_Port, LCD_DB6_GPIO_Port, LCD_DB5_GPIO_Port,
 								LCD_DB4_GPIO_Port, LCD_DB3_GPIO_Port, LCD_DB2_GPIO_Port,
 								LCD_DB1_GPIO_Port, LCD_DB0_GPIO_Port};
 uint16_t Data_Pins[8] = {LCD_DB7_Pin, LCD_DB6_Pin, LCD_DB5_Pin, LCD_DB4_Pin,
 						LCD_DB3_Pin, LCD_DB2_Pin, LCD_DB1_Pin, LCD_DB0_Pin};
+
+// 4 bit
+//GPIO_TypeDef* Data_Ports[4] = {LCD_DB7_GPIO_Port, LCD_DB6_GPIO_Port, LCD_DB5_GPIO_Port,
+//								LCD_DB4_GPIO_Port};
+//uint16_t Data_Pins[4] = {LCD_DB7_Pin, LCD_DB6_Pin, LCD_DB5_Pin, LCD_DB4_Pin};
+
 volatile uint16_t EdgeUpTime;
 volatile uint16_t EdgeDownTime;
 volatile uint8_t ReadyToCalcDist = 0;
 volatile uint8_t StartMeasureDist = 0;
+
+uint8_t dummydata[8] = {123,233,122,89,190,188,244,250};
 /* USER CODE END Variables */
 /* Definitions for HeartBeatTask */
 osThreadId_t HeartBeatTaskHandle;
@@ -271,10 +280,12 @@ void StartCalcDistTask(void *argument)
 void StartLcdDistTask(void *argument)
 {
   /* USER CODE BEGIN StartLcdDistTask */
+	 xSemaphoreTake(LcdMutexHandle, portMAX_DELAY);
 	 LCD_create(&lcd ,Data_Ports, Data_Pins, LCD_RS_GPIO_Port, LCD_RS_Pin,
 			 	 LCD_RW_GPIO_Port, LCD_RW_Pin, LCD_E_GPIO_Port, LCD_E_Pin);
 	 LCD_Init(&lcd, LCD_8BIT_MODE, LCD_ONE_LINE, LCD_5x8, LCD_CURSOR_OFF, LCD_BLINKING_OFF);
 	 LCD_Write_Data(&lcd, (uint8_t*)"Result: ", 8);
+	 xSemaphoreGive(LcdMutexHandle);
 	 float dist;
 	 char msg[32];
 	 uint8_t length;
@@ -304,17 +315,26 @@ void StartLcdDataTask(void *argument)
 {
   /* USER CODE BEGIN StartLcdDataTask */
 	osDelay(300);
+	xSemaphoreTake(LcdMutexHandle, portMAX_DELAY);
 	LCD_New_Line(&lcd, 2);
 	LCD_Write_Data(&lcd, (uint8_t*)"Data: ", 6);
+	xSemaphoreGive(LcdMutexHandle);
+	uint8_t i = 0;
+	char data[8];
+	uint8_t length;
   /* Infinite loop */
   for(;;)
   {
     osDelay(200);
+    length = sprintf(data, "%d xx", dummydata[i]);
     xSemaphoreTake(LcdMutexHandle, portMAX_DELAY);
 	LCD_Clear_XtoY_In_Line(&lcd, 2, 7, 7);
 	LCD_GoTo_X(&lcd, 2, 7);
-	LCD_Write_Data(&lcd, (uint8_t*)"123 xx", 6);
+	LCD_Write_Data(&lcd, (uint8_t*)data, length);
 	xSemaphoreGive(LcdMutexHandle);
+	i++;
+	if(i == 8)
+		i = 0;
   }
   /* USER CODE END StartLcdDataTask */
 }

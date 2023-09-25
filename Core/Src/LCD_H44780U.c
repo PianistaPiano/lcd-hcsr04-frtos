@@ -67,6 +67,8 @@ static void LCD_write(LCD_H44780_t* lcd, LCD_REGISTER_t reg, uint8_t data)
 			HAL_GPIO_WritePin(lcd->Data_Ports[i-1], lcd->Data_Pins[i-1], (data >> (8-i)) & ONE_BIT_MASK);
 		}
 		LCD_Transfer(lcd);
+		xTimerStart(LcdTransferTimerHandle, 1);
+		xSemaphoreTake(LcdTransferSemHandle, portMAX_DELAY);
 		for(uint8_t i = 1; i <= 4; i++)
 		{
 			HAL_GPIO_WritePin(lcd->Data_Ports[i-1], lcd->Data_Pins[i-1], (data >> (4-i)) & ONE_BIT_MASK);
