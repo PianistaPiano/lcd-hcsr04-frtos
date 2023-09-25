@@ -6,7 +6,13 @@
  */
 
 #include "LCD_H44780U.h"
+#include "cmsis_os.h"
+#include "semphr.h"
+#include "timers.h"
 
+extern osTimerId_t LcdTransferTimerHandle;
+extern osMutexId_t LcdWriteMutexHandle;
+extern osSemaphoreId_t LcdTransferSemHandle;
 
 // ==== statics functions ==== //
 /**
@@ -18,7 +24,9 @@ static void LCD_Transfer(LCD_H44780_t* lcd)
 {
 	// Raise E
 	HAL_GPIO_WritePin(lcd->EN_Port, lcd->EN_Pin, 1);
-	HAL_Delay(1);
+	//HAL_Delay(1);
+	xTimerStart(LcdTransferTimerHandle, 1);
+	xSemaphoreTake(LcdTransferSemHandle, portMAX_DELAY);
 	// Fall E
 	HAL_GPIO_WritePin(lcd->EN_Port, lcd->EN_Pin, 0);
 
@@ -59,13 +67,14 @@ static void LCD_write(LCD_H44780_t* lcd, LCD_REGISTER_t reg, uint8_t data)
 			HAL_GPIO_WritePin(lcd->Data_Ports[i-1], lcd->Data_Pins[i-1], (data >> (8-i)) & ONE_BIT_MASK);
 		}
 		LCD_Transfer(lcd);
+		xTimerStart(LcdTransferTimerHandle, 1);
+		xSemaphoreTake(LcdTransferSemHandle, portMAX_DELAY);
 		for(uint8_t i = 1; i <= 4; i++)
 		{
 			HAL_GPIO_WritePin(lcd->Data_Ports[i-1], lcd->Data_Pins[i-1], (data >> (4-i)) & ONE_BIT_MASK);
 		}
 		LCD_Transfer(lcd);
 	}
-
 }
 
 /**
@@ -146,44 +155,44 @@ uint8_t LCD_New_Line(LCD_H44780_t* lcd, uint8_t num_of_line)
   * @brief  This function goes to specific place of specific line
   * @param  lcd - is a pointer to a lcd structure which contains all needed parameters
   * 		num_of_line - contains line number. Range: 1 to 4
-  * 		x_postion_cursor_in_line - contains position in specific line. Range: 0 to (PLACES_IN_LINE - 1)
+  * 		x_postion_cursor_in_line - contains position in specific line. Range: 1 to PLACES_IN_LINE
   * @retval 1 - if params are out of range, 0 - if ok
   */
 uint8_t LCD_GoTo_X(LCD_H44780_t* lcd, uint8_t num_of_line, uint8_t x_postion_cursor_in_line)
 {
 	if(lcd->num_of_lines == LCD_ONE_LINE)
 	{
-		if((num_of_line <= 4) && (x_postion_cursor_in_line <= (PLACES_IN_LINE -1)))
+		if((num_of_line <= 4) && ((x_postion_cursor_in_line-1) <= (PLACES_IN_LINE -1)))
 		{
 			// if num lines eq. 1 then any other num_of_line than 1 is line 3
 			switch (num_of_line)
 			{
 				case 1:
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | FIRST_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | FIRST_LINE) + (x_postion_cursor_in_line - 1));
 					break;
 				default:
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | THIRD_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | THIRD_LINE) + (x_postion_cursor_in_line - 1));
 					break;
 			}
 		}
 	}
 	else
 	{
-		if((num_of_line <= 4) && (x_postion_cursor_in_line <= (PLACES_IN_LINE -1)))
+		if((num_of_line <= 4) && ((x_postion_cursor_in_line - 1) <= (PLACES_IN_LINE -1)))
 		{
 			switch (num_of_line)
 			{
 				case 1:
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | FIRST_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | FIRST_LINE) + (x_postion_cursor_in_line - 1));
 					break;
 				case 2:
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | SECOND_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | SECOND_LINE) + (x_postion_cursor_in_line - 1));
 					break;
 				case 3:
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | THIRD_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | THIRD_LINE) + (x_postion_cursor_in_line - 1));
 					break;
 				case 4:
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | FOURTH_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | FOURTH_LINE) + (x_postion_cursor_in_line - 1));
 					break;
 				default:
 					// can't be here
@@ -331,12 +340,13 @@ uint8_t LCD_Clear_Line(LCD_H44780_t* lcd, uint8_t num_of_line)
   * @brief  This function clears from specific place X, a Y places in specific line
   * @param  lcd - is a pointer to a lcd structure which contains all needed parameters
   * 		num_of_line - contains line number. Range: 1 to 4
+  * 		x_postion_cursor_in_line - contains position in specific line. Range: 1 to PLACES_IN_LINE
   * @retval 1 - if params are out of range, 0 - if ok
   */
 uint8_t LCD_Clear_XtoY_In_Line(LCD_H44780_t* lcd, uint8_t num_of_line, uint8_t x_postion_cursor_in_line, uint8_t num_to_clear)
 {
 
-	if((num_of_line <= 4) && (x_postion_cursor_in_line <= (PLACES_IN_LINE - 1)))
+	if((num_of_line <= 4) && ((x_postion_cursor_in_line - 1) <= (PLACES_IN_LINE - 1)))
 	{
 		uint8_t clear_data[num_to_clear];
 		memset(clear_data, ' ', num_to_clear*sizeof(uint8_t));
@@ -345,24 +355,24 @@ uint8_t LCD_Clear_XtoY_In_Line(LCD_H44780_t* lcd, uint8_t num_of_line, uint8_t x
 			switch (num_of_line)
 			{
 				case 1:
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | FIRST_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | FIRST_LINE) + (x_postion_cursor_in_line - 1));
 					LCD_Write_Data(lcd, clear_data, num_to_clear);
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | FIRST_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | FIRST_LINE) + (x_postion_cursor_in_line - 1));
 					break;
 				case 2:
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | SECOND_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | SECOND_LINE) + (x_postion_cursor_in_line - 1));
 					LCD_Write_Data(lcd, clear_data, num_to_clear);
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | SECOND_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | SECOND_LINE) + (x_postion_cursor_in_line - 1));
 					break;
 				case 3:
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | THIRD_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | THIRD_LINE) + (x_postion_cursor_in_line - 1));
 					LCD_Write_Data(lcd, clear_data, num_to_clear);
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | THIRD_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | THIRD_LINE) + (x_postion_cursor_in_line - 1));
 					break;
 				case 4:
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | FOURTH_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | FOURTH_LINE) + (x_postion_cursor_in_line - 1));
 					LCD_Write_Data(lcd, clear_data, num_to_clear);
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | FOURTH_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | FOURTH_LINE) + (x_postion_cursor_in_line - 1));
 					break;
 				default:
 					// can't be here
@@ -375,14 +385,14 @@ uint8_t LCD_Clear_XtoY_In_Line(LCD_H44780_t* lcd, uint8_t num_of_line, uint8_t x
 			{
 				// if num lines eq. 1 then any other num_of_line than 1 is line 3
 				case 1:
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | FIRST_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | FIRST_LINE) + (x_postion_cursor_in_line - 1));
 					LCD_Write_Data(lcd, clear_data, num_to_clear);
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | FIRST_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | FIRST_LINE) + (x_postion_cursor_in_line - 1));
 					break;
 				default:
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | THIRD_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | THIRD_LINE) + (x_postion_cursor_in_line - 1));
 					LCD_Write_Data(lcd, clear_data, num_to_clear);
-					LCD_write_command(lcd, (SET_DDRAM_ADDR | THIRD_LINE) + x_postion_cursor_in_line);
+					LCD_write_command(lcd, (SET_DDRAM_ADDR | THIRD_LINE) + (x_postion_cursor_in_line - 1));
 					break;
 			}
 		}
@@ -416,9 +426,12 @@ void LCD_Init(LCD_H44780_t* lcd, LCD_MODE_t mode, LCD_LINES_t num_of_lines, LCD_
 	lcd->cursor = cursor;
 	lcd->blink = blink;
 
-	// Init
+
 	uint8_t command = 0;
 	// for test // uint8_t data = 0;
+
+	// Init
+
 	if((lcd->mode == LCD_8BIT_MODE) && (lcd->num_of_lines == LCD_ONE_LINE) && (lcd->dots == LCD_5x8))
 	{
 		command = FUNCTION_SET | MODE_8BIT_ONE_LINE | DOTS_5x8;
@@ -453,13 +466,6 @@ void LCD_Init(LCD_H44780_t* lcd, LCD_MODE_t mode, LCD_LINES_t num_of_lines, LCD_
 	}
 
 	LCD_write_command(lcd, command);
-	// This delays are in init
-	HAL_Delay(1);
-
-	// clear display
-	command = CLEAR_DISPLAY;
-	LCD_write_command(lcd, command);
-	HAL_Delay(1);
 
 	// On display and cursor and blink
 	if((lcd->cursor == LCD_CURSOR_ON) && (lcd->blink == LCD_BLINKING_ON))
@@ -479,12 +485,17 @@ void LCD_Init(LCD_H44780_t* lcd, LCD_MODE_t mode, LCD_LINES_t num_of_lines, LCD_
 		command = DISPLAY_CURSOR_ON_OFF | DISP_ON_CURSOR_ON_BLINK_OFF;
 	}
 	LCD_write_command(lcd, command);
-	HAL_Delay(1);
 
 	// Entry mode set inc not accompanish
 	command = ENTRY_MODE_SET | CURSOR_INC_ON_AND_ACC_DISP_OFF;
 	LCD_write_command(lcd, command);
+
+	// clear display
+	command = CLEAR_DISPLAY;
+	LCD_write_command(lcd, command);
 	HAL_Delay(1);
+
+
 //	// for test
 //	data = (uint8_t)'H';
 //	LCD_write_data(lcd, data);
